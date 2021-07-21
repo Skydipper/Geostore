@@ -1,6 +1,19 @@
 #!groovy
 
 node {
+  // Actions
+  def forceCompleteDeploy = false
+  try {
+    timeout(time: 15, unit: 'SECONDS') {
+      forceCompleteDeploy = input(
+        id: 'Proceed0', message: 'Force COMPLETE Deployment', parameters: [
+        [$class: 'BooleanParameterDefinition', defaultValue: true, description: '', name: 'Please confirm you want to recreate services and deployments']
+      ])
+    }
+  }
+  catch(err) { // timeout reached or input false
+      // nothing
+  }
 
   // Variables
   def tokens = "${env.JOB_NAME}".tokenize('/')
