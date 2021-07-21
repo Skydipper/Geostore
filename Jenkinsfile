@@ -5,7 +5,7 @@ node {
   // Variables
   def tokens = "${env.JOB_NAME}".tokenize('/')
   def appName = tokens[0]
-  def dockerUsername = "${DOCKER_WRI_USERNAME}"
+  def dockerUsername = "${DOCKER_USERNAME}"
   def imageTag = "${dockerUsername}/${appName}:${env.BRANCH_NAME}.${env.BUILD_NUMBER}"
 
   currentBuild.result = "SUCCESS"
@@ -38,8 +38,8 @@ node {
     stage ("Deploy Application") {
       switch ("${env.BRANCH_NAME}") {
 
-        // Roll out to production
-        case "production":
+        // Roll out to master
+        case "master":
           def userInput = true
           def didTimeout = false
           if ("${SKIP_DEPLOYMENT_CONFIRMATION}" != "true") {
