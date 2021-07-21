@@ -1,137 +1,71 @@
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
     name: {name}
-    app: geostore
+    app: gfw
   name: {name}
 spec:
-  progressDeadlineSeconds: 2147483647
   revisionHistoryLimit: 2
-  selector:
-    matchLabels:
-      name: geostore
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
   template:
     metadata:
+      annotations:
+        chaos.alpha.kubernetes.io/enabled: "true"
       labels:
-        name: geostore
+        name: {name}
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: type
-                    operator: In
-                    values:
-                      - apps
       containers:
-        - args:
-            - start
-          env:
-            - name: PORT
-              value: "3100"
-            - name: NODE_OPTIONS
-              value: "--max-old-space-size=1024"
-            - name: NODE_ENV
-              value: prod
-            - name: NODE_PATH
-              value: app/src
-            - name: LOCAL_URL
-              value: http://geostore.default.svc.cluster.local:3100
-            - name: MONGO_USE_UNIFIED_TOPOLOGY
-              value: "false"
-            - name: MONGO_URI
-              valueFrom:
+      - name: {name}
+        image: vizzuality/{name}
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "128Mi"
+          limits:
+            memory: "512Mi"
+        args:
+          - start
+        env:
+          - name: PORT
+            value: "3100"
+          - name: NODE_ENV
+            value: prod
+          - name: NODE_PATH
+            value: app/src
+          - name: LOCAL_URL
+            value: http://{name}.default.svc.cluster.local:3100
+          - name: MONGO_URI
+            valueFrom:
                 secretKeyRef:
-                  key: GEOSTORE_MONGO_URI
                   name: dbsecrets
-            - name: CT_URL
-              valueFrom:
+                  key: GEOSTORE_MONGO_URI
+          - name: CT_URL
+            valueFrom:
                 secretKeyRef:
+                  name: mssecrets
                   key: CT_URL
-                  name: mssecrets
-            - name: CT_TOKEN
-              valueFrom:
+          - name: CT_TOKEN
+            valueFrom:
                 secretKeyRef:
+                  name: mssecrets
                   key: CT_TOKEN
-                  name: mssecrets
-            - name: CT_REGISTER_MODE
-              valueFrom:
+          - name: CT_REGISTER_MODE
+            valueFrom:
                 secretKeyRef:
+                  name: mssecrets
                   key: CT_REGISTER_MODE
-                  name: mssecrets
-            - name: API_VERSION
-              valueFrom:
+          - name: API_VERSION
+            valueFrom:
                 secretKeyRef:
+                  name: mssecrets
                   key: API_VERSION
-                  name: mssecrets
-            - name: CARTODB_USER
-              valueFrom:
+          - name: CARTODB_USER
+            valueFrom:
                 secretKeyRef:
+                  name: mssecrets
                   key: CARTODB_USER
-                  name: mssecrets
-            - name: FASTLY_ENABLED
-              valueFrom:
-                secretKeyRef:
-                  key: FASTLY_ENABLED
-                  name: mssecrets
-            - name: FASTLY_APIKEY
-              valueFrom:
-                secretKeyRef:
-                  key: FASTLY_APIKEY
-                  name: mssecrets
-                  optional: true
-            - name: FASTLY_SERVICEID
-              valueFrom:
-                secretKeyRef:
-                  key: FASTLY_SERVICEID
-                  name: mssecrets
-                  optional: true
-          image: gfwdockerhub/geostore
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthcheck
-              port: 3100
-              scheme: HTTP
-            initialDelaySeconds: 30
-            periodSeconds: 15
-            successThreshold: 1
-            timeoutSeconds: 5
-          name: geostore
-          ports:
-            - containerPort: 3100
-              protocol: TCP
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthcheck
-              port: 3100
-              scheme: HTTP
-            initialDelaySeconds: 30
-            periodSeconds: 15
-            successThreshold: 1
-            timeoutSeconds: 5
-          resources:
-            limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 250m
-              memory: 256M
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-      dnsPolicy: ClusterFirst
-      imagePullSecrets:
-        - name: regcred
+
+        ports:
+          - containerPort: 3100
+
       restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: { }
-      terminationGracePeriodSeconds: 30
