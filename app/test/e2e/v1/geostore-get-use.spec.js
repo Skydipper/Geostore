@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars,no-undef */
+/* eslint-disable no-underscore-dangle */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -10,7 +10,7 @@ const { createMockQueryCartoDB } = require('../utils/mock');
 const { createQueryUSE, createQueryGeometry } = require('../utils/queries-v1');
 const { MOCK_RESULT_CARTODB } = require('../utils/test.constants');
 
-const should = chai.should();
+chai.should();
 const prefix = '/api/v1/geostore/use';
 
 let geostoreUSE;
@@ -151,8 +151,8 @@ describe('Geostore v1 tests - Get list geostore by use', () => {
     it('Getting geostore by use table custom with doesn\'t existing geo in GEOSTORE should create geostore and return (happy case)',
         checkUseRequestFromQuery('custom', 'custom'));
 
-    afterEach(() => {
-        GeoStore.remove({}).exec();
+    afterEach(async () => {
+        await GeoStore.deleteMany({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

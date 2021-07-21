@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars,no-undef */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -8,7 +7,7 @@ const { createRequest } = require('../utils/test-server');
 const { DEFAULT_GEOJSON } = require('../utils/test.constants');
 const { getUUID, ensureCorrectError, createGeostore } = require('../utils/utils');
 
-const should = chai.should();
+chai.should();
 const prefix = '/api/v1/geostore/';
 
 let geostore;
@@ -90,8 +89,8 @@ describe('Geostore v1 tests - Get geostores', () => {
         esrijson.should.deep.equal({ spatialReference: { wkid: 4326 } });
     });
 
-    afterEach(() => {
-        GeoStore.remove({}).exec();
+    afterEach(async () => {
+        await GeoStore.deleteMany({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

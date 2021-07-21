@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars,no-undef */
+/* eslint-disable no-underscore-dangle */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -10,7 +10,7 @@ const { createMockQueryCartoDB } = require('../utils/mock');
 const { createQueryID1, createQueryGeometry } = require('../utils/queries-v1');
 const { DEFAULT_GEOJSON, MOCK_RESULT_CARTODB } = require('../utils/test.constants');
 
-const should = chai.should();
+chai.should();
 const prefix = '/api/v1/geostore/admin';
 
 let subnational;
@@ -117,8 +117,8 @@ describe('Geostore v1 tests - Get geostore subnational by id', () => {
         expectedSubnational.should.deep.equal(attributes);
     });
 
-    afterEach(() => {
-        GeoStore.remove({}).exec();
+    afterEach(async () => {
+        await GeoStore.deleteMany({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

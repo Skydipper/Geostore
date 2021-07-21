@@ -1,6 +1,5 @@
 const GeoJSONConverter = require('converters/geoJSONConverter');
 
-
 describe('Error serializer test', () => {
     const featureCollectionExample = {
         type: 'FeatureCollection',
@@ -118,7 +117,7 @@ describe('Error serializer test', () => {
         geometry.coordinates.should.length(geometryExample.coordinates.length);
     });
 
-    it('Get geometry from from feature collection', () => {
+    it('Get geometry from from feature collection - feature', () => {
         const geometry = GeoJSONConverter.getGeometry(featureExample);
         geometry.should.have.property('type');
         geometry.type.should.be.equal(geometryExample.type);
@@ -127,7 +126,7 @@ describe('Error serializer test', () => {
         geometry.coordinates.should.length(geometryExample.coordinates.length);
     });
 
-    it('Get geometry from from feature collection', () => {
+    it('Get geometry from from feature collection - geometry', () => {
         const geometry = GeoJSONConverter.getGeometry(geometryExample);
         geometry.should.have.property('type');
         geometry.type.should.be.equal(geometryExample.type);
