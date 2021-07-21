@@ -13,6 +13,10 @@ services:
       API_VERSION: v1
       STAMPERY_TOKEN: token
       MONGO_PORT_27017_TCP_ADDR: mongo
+      CT_REGISTER_MODE: auto
+      CT_TOKEN: cttoken
+      LOCAL_URL: http://geostore.default.svc.cluster.local:3100
+      FASTLY_ENABLED: "false"
     command: test
     depends_on:
       - mongo

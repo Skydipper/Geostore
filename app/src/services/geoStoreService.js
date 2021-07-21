@@ -9,20 +9,16 @@ const ProviderNotFound = require('errors/providerNotFound');
 const GeoJSONNotFound = require('errors/geoJSONNotFound');
 const UnknownGeometry = require('errors/unknownGeometry');
 const config = require('config');
-const { promisify } = require('util');
 
 const CARTO_PROVIDER = 'carto';
 
-
-const executeThunk = function (client, sql, params) {
-    return function (callback) {
-        client.execute(sql, params).done((data) => {
-            callback(null, data);
-        }).error((err) => {
-            callback(err[0], null);
-        });
-    };
-};
+const executeThunk = (client, sql, params) => new Promise(((resolve, reject) => {
+    client.execute(sql, params).done((data) => {
+        resolve(data);
+    }).error((err) => {
+        reject(err[0]);
+    });
+}));
 
 class GeoStoreService {
 
@@ -42,17 +38,17 @@ class GeoStoreService {
         throw new UnknownGeometry(`Unknown geometry type: ${geojson.type}`);
     }
 
-    static* repairGeometry(geojson) {
+    static async repairGeometry(geojson) {
         try {
-
+            logger.info('[GeoStoreService - repairGeometry] - Starting geometry repair...');
             logger.debug('GeoJSON: %s', JSON.stringify(geojson));
 
-            const geometry_type = GeoStoreService.getGeometryType(geojson);
-            logger.debug('Geometry type: %s', JSON.stringify(geometry_type));
+            const geometryType = GeoStoreService.getGeometryType(geojson);
+            logger.debug('Geometry type: %s', JSON.stringify(geometryType));
 
             logger.debug('Repair geoJSON geometry');
             logger.debug('Generating query');
-            const sql = `SELECT ST_AsGeoJson(ST_CollectionExtract(st_MakeValid(ST_GeomFromGeoJSON('${JSON.stringify(geojson)}')),${geometry_type})) as geojson`;
+            const sql = `SELECT ST_AsGeoJson(ST_CollectionExtract(st_MakeValid(ST_GeomFromGeoJSON('${JSON.stringify(geojson)}')),${geometryType})) as geojson`;
 
             if (process.env.NODE_ENV !== 'test' || sql.length < 2000) {
                 logger.debug('SQL to repair geojson: %s', sql);
@@ -61,7 +57,7 @@ class GeoStoreService {
             const client = new CartoDB.SQL({
                 user: config.get('cartoDB.user')
             });
-            const data = yield executeThunk(client, sql, {});
+            const data = await executeThunk(client, sql, {});
             if (data.rows && data.rows.length === 1) {
                 data.rows[0].geojson = JSON.parse(data.rows[0].geojson);
                 logger.debug(data.rows[0].geojson);
@@ -74,7 +70,7 @@ class GeoStoreService {
         }
     }
 
-    static* obtainGeoJSONOfCarto(table, user, filter) {
+    static async obtainGeoJSONOfCarto(table, user, filter) {
         logger.debug('Obtaining geojson with params: table %s, user %s, filter %s', table, user, filter);
         logger.debug('Generating query');
         const sql = `SELECT ST_AsGeoJson(the_geom) as geojson, (ST_Area(geography(the_geom))/10000) as area_ha FROM ${table} WHERE ${filter}`;
@@ -82,7 +78,7 @@ class GeoStoreService {
         const client = new CartoDB.SQL({
             user
         });
-        const data = yield executeThunk(client, sql, {});
+        const data = await client.execute(sql, {});
         if (data.rows && data.rows.length === 1) {
             data.rows[0].geojson = JSON.parse(data.rows[0].geojson);
             logger.debug(data.rows[0].geojson);
@@ -91,15 +87,7 @@ class GeoStoreService {
         throw new GeoJSONNotFound('Geojson not found');
     }
 
-    static* getNewHash(hash) {
-        const idCon = yield IdConnection.findOne({ oldId: hash }).exec();
-        if (!idCon) {
-            return hash;
-        }
-        return idCon.hash;
-    }
-
-    static async getNewHashPromise(hash) {
+    static async getNewHash(hash) {
         const idCon = await IdConnection.findOne({ oldId: hash }).exec();
         if (!idCon) {
             return hash;
@@ -107,11 +95,11 @@ class GeoStoreService {
         return idCon.hash;
     }
 
-    static* getGeostoreById(id) {
+    static async getGeostoreById(id) {
         logger.debug(`Getting geostore by id ${id}`);
-        const hash = yield GeoStoreService.getNewHash(id);
+        const hash = await GeoStoreService.getNewHash(id);
         logger.debug('hash', hash);
-        const geoStore = yield GeoStore.findOne({ hash }, { 'geojson._id': 0, 'geojson.features._id': 0 });
+        const geoStore = await GeoStore.findOne({ hash }, { 'geojson._id': 0, 'geojson.features._id': 0 });
         if (geoStore) {
             logger.debug('geostore', JSON.stringify(geoStore.geojson));
             return geoStore;
@@ -121,7 +109,7 @@ class GeoStoreService {
 
     static async getMultipleGeostores(ids) {
         logger.debug(`Getting geostores with ids: ${ids}`);
-        const hashes = await Promise.all(ids.map(GeoStoreService.getNewHashPromise));
+        const hashes = await Promise.all(ids.map(GeoStoreService.getNewHash));
         const query = { hash: { $in: hashes } };
         const geoStores = await GeoStore.find(query);
 
@@ -131,32 +119,32 @@ class GeoStoreService {
         return null;
     }
 
-    static* getNationalList() {
+    static async getNationalList() {
         logger.debug('Obtaining national list from database');
         const query = {
-            'info.iso': { $ne: null },
+            'info.iso': { $gt: '' },
             'info.id1': null
         };
         const select = 'hash info.iso';
-        return yield GeoStore.find(query, select);
+        return GeoStore.find(query, select);
     }
 
-    static* getGeostoreByInfoProps(infoQuery) {
-        const geoStore = yield GeoStore.findOne(infoQuery);
+    static async getGeostoreByInfoProps(infoQuery) {
+        const geoStore = await GeoStore.findOne(infoQuery);
         return geoStore;
     }
 
-    static* getGeostoreByInfo(info) {
-        const geoStore = yield GeoStore.findOne({ info });
+    static async getGeostoreByInfo(info) {
+        const geoStore = await GeoStore.findOne({ info });
         return geoStore;
     }
 
-    static* obtainGeoJSON(provider) {
+    static async obtainGeoJSON(provider) {
         logger.debug('Obtaining geojson of provider', provider);
         switch (provider.type) {
 
             case CARTO_PROVIDER:
-                return yield GeoStoreService.obtainGeoJSONOfCarto(provider.table, provider.user, provider.filter);
+                return GeoStoreService.obtainGeoJSONOfCarto(provider.table, provider.user, provider.filter);
             default:
                 logger.error('Provider not found');
                 throw new ProviderNotFound(`Provider ${provider.type} not found`);
@@ -164,21 +152,20 @@ class GeoStoreService {
         }
     }
 
-    static* calculateBBox(geoStore) {
+    static async calculateBBox(geoStore) {
         logger.debug('Calculating bbox');
         geoStore.bbox = turf.bbox(geoStore.geojson);
-        yield geoStore.save();
+        await geoStore.save();
         return geoStore;
     }
 
-    static* saveGeostore(geojson, data) {
-
+    static async saveGeostore(geojson, data) {
         const geoStore = {
             geojson
         };
 
         if (data && data.provider) {
-            const geoJsonObtained = yield GeoStoreService.obtainGeoJSON(data.provider);
+            const geoJsonObtained = await GeoStoreService.obtainGeoJSON(data.provider);
             geoStore.geojson = geoJsonObtained.geojson;
             geoStore.areaHa = geoJsonObtained.area_ha;
             geoStore.provider = {
@@ -194,7 +181,7 @@ class GeoStoreService {
         if (geom_type && geom_type === 'FeatureCollection') {
             logger.info('Preserving FeatureCollection properties.');
             props = geoStore.geojson.features[0].properties || null;
-        } else if (geom_type && geom_type === 'Feature') {
+        } else if (geomType && geomType === 'Feature') {
             logger.info('Preserving Feature properties.');
             props = geoStore.geojson.properties || null;
         } else {
@@ -220,47 +207,44 @@ class GeoStoreService {
         if (geoStore.areaHa === undefined) {
             geoStore.areaHa = turf.area(geoStore.geojson) / 10000; // convert to ha2
         }
-        const exist = yield GeoStore.findOne({
+        await GeoStore.findOne({
             hash: geoStore.hash
         });
         if (!geoStore.bbox) {
             geoStore.bbox = turf.bbox(geoStore.geojson);
         }
 
-        yield GeoStore.findOneAndUpdate({ hash: geoStore.hash }, geoStore, {
+        return GeoStore.findOneAndUpdate({ hash: geoStore.hash }, geoStore, {
             upsert: true,
             new: true,
-            runValidators: true
-        });
-
-        return yield GeoStore.findOne({
-            hash: geoStore.hash
-        }, {
-            'geojson._id': 0,
-            'geojson.features._id': 0
+            runValidators: true,
+            projection: {
+                'geojson._id': 0,
+                'geojson.features._id': 0
+            }
         });
     }
 
-    static* calculateArea(geojson, data) {
+    static async calculateArea(geojson, data) {
 
         const geoStore = {
             geojson
         };
 
         if (data && data.provider) {
-            const geoJsonObtained = yield GeoStoreService.obtainGeoJSON(data.provider);
+            const geoJsonObtained = await GeoStoreService.obtainGeoJSON(data.provider);
             geoStore.geojson = geoJsonObtained.geojson;
             geoStore.areaHa = geoJsonObtained.area_ha;
         }
 
         logger.debug('Converting geojson');
         logger.debug('Converting', JSON.stringify(geoStore.geojson));
-        geoStore.geojson = GeoJSONConverter.convert(geoStore.geojson);
+        geoStore.geojson = GeoJSONConverter.makeFeatureCollection(geoStore.geojson);
         logger.debug('Result', JSON.stringify(geoStore.geojson));
         geoStore.areaHa = turf.area(geoStore.geojson) / 10000; // convert to ha2
         geoStore.bbox = turf.bbox(geoStore.geojson);
 
-        return yield geoStore;
+        return geoStore;
 
     }
 

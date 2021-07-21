@@ -2,24 +2,10 @@
 
 node {
 
-  // Actions
-  def forceCompleteDeploy = false
-  try {
-    timeout(time: 15, unit: 'SECONDS') {
-      forceCompleteDeploy = input(
-        id: 'Proceed0', message: 'Force COMPLETE Deployment', parameters: [
-        [$class: 'BooleanParameterDefinition', defaultValue: true, description: '', name: 'Please confirm you want to recreate services and deployments']
-      ])
-    }
-  }
-  catch(err) { // timeout reached or input false
-      // nothing
-  }
-
   // Variables
   def tokens = "${env.JOB_NAME}".tokenize('/')
   def appName = tokens[0]
-  def dockerUsername = "${DOCKER_USERNAME}"
+  def dockerUsername = "${DOCKER_WRI_USERNAME}"
   def imageTag = "${dockerUsername}/${appName}:${env.BRANCH_NAME}.${env.BUILD_NUMBER}"
 
   currentBuild.result = "SUCCESS"
@@ -53,35 +39,31 @@ node {
       switch ("${env.BRANCH_NAME}") {
 
         // Roll out to production
-        case "master":
+        case "production":
           def userInput = true
           def didTimeout = false
-          try {
-            timeout(time: 60, unit: 'SECONDS') {
-              userInput = input(
-                id: 'Proceed1', message: 'Confirm deployment', parameters: [
-                [$class: 'BooleanParameterDefinition', defaultValue: true, description: '', name: 'Please confirm you agree with this deployment']
-              ])
-            }
-          }
-          catch(err) { // timeout reached or input false
-              sh("echo Aborted by user or timeout")
-              if('SYSTEM' == user.toString()) { // SYSTEM means timeout.
-                  didTimeout = true
-              } else {
-                  userInput = false
+          if ("${SKIP_DEPLOYMENT_CONFIRMATION}" != "true") {
+              try {
+                timeout(time: 60, unit: 'SECONDS') {
+                  userInput = input(
+                    id: 'Proceed1', message: 'Confirm deployment', parameters: [
+                    [$class: 'BooleanParameterDefinition', defaultValue: true, description: '', name: 'Please confirm you agree with this deployment']
+                  ])
+                }
+              }
+              catch(err) { // timeout reached or input false
+                  sh("echo Aborted by user or timeout")
+                  if('SYSTEM' == user.toString()) { // SYSTEM means timeout.
+                      didTimeout = true
+                  } else {
+                      userInput = false
+                  }
               }
           }
-          if (userInput == true && !didTimeout){
+          if ((userInput == true && !didTimeout) || "${SKIP_DEPLOYMENT_CONFIRMATION}" != "true") {
             sh("echo Deploying to PROD cluster")
-            sh("kubectl config use-context gke_${GCLOUD_PROJECT}_${GCLOUD_GCE_ZONE}_${KUBE_PROD_CLUSTER}")
-            def service = sh([returnStdout: true, script: "kubectl get deploy ${appName} || echo NotFound"]).trim()
-            if ((service && service.indexOf("NotFound") > -1) || (forceCompleteDeploy)){
-              sh("sed -i -e 's/{name}/${appName}/g' k8s/services/*.yaml")
-              sh("sed -i -e 's/{name}/${appName}/g' k8s/production/*.yaml")
-              sh("kubectl apply -f k8s/services/")
-              sh("kubectl apply -f k8s/production/")
-            }
+            sh("kubectl config use-context ${KUBECTL_CONTEXT_PREFIX}_${CLOUD_PROJECT_NAME}_${CLOUD_PROJECT_ZONE}_${KUBE_PROD_CLUSTER}")
+            sh("kubectl apply -f k8s/production/")
             sh("kubectl set image deployment ${appName} ${appName}=${imageTag} --record")
           } else {
             sh("echo NOT DEPLOYED")

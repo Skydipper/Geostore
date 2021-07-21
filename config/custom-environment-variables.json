@@ -2,7 +2,8 @@
   "mongodb": {
     "host": "MONGO_PORT_27017_TCP_ADDR",
     "port": "MONGO_PORT_27017_TCP_PORT",
-    "database": "MONGO_PORT_27017_TCP_DATABASE"
+    "database": "MONGO_PORT_27017_TCP_DATABASE",
+    "useUnifiedTopology": "MONGO_USE_UNIFIED_TOPOLOGY"
   },
   "logger": {
     "type": "LOGGER_TYPE",
@@ -10,9 +11,6 @@
   },
   "service": {
     "port": "PORT"
-  },
-  "migrate": {
-    "uri": "MIGRATE_URI"
   },
   "cartoDB": {
     "user": "CARTODB_USER"

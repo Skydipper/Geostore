@@ -1,10 +1,8 @@
-
-const logger = require('logger');
 const JSONAPISerializer = require('jsonapi-serializer').Serializer;
 
 const coverageSerializer = new JSONAPISerializer('coverages', {
     attributes: ['layers'],
-    typeForAttribute(attribute, record) {
+    typeForAttribute(attribute) {
         return attribute;
     },
     keyForAttribute: 'camelCase'

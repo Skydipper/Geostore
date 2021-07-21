@@ -1,76 +1,111 @@
 const config = require('config');
 const logger = require('logger');
-const koa = require('koa');
+const Koa = require('koa');
 const bodyParser = require('koa-bodyparser');
 const koaLogger = require('koa-logger');
 const loader = require('loader');
-const validate = require('koa-validate');
+const koaValidate = require('koa-validate');
 const mongoose = require('mongoose');
 const ErrorSerializer = require('serializers/errorSerializer');
-
-const mongoUri = process.env.MONGO_URI || `mongodb://${config.get('mongodb.host')}:${config.get('mongodb.port')}/${config.get('mongodb.database')}`;
-const ctRegisterMicroservice = require('ct-register-microservice-node');
+const koaSimpleHealthCheck = require('koa-simple-healthcheck');
+const { RWAPIMicroservice } = require('rw-api-microservice-node');
 const sleep = require('sleep');
 
-// const nock = require('nock');
-// nock.recorder.rec();
+const mongooseOptions = require('../../config/mongoose');
+
+const mongoUri = process.env.MONGO_URI || `mongodb://${config.get('mongodb.host')}:${config.get('mongodb.port')}/${config.get('mongodb.database')}`;
 
 let retries = 10;
 
+if (config.get('logger.level') === 'debug') {
+    logger.debug('Setting mongoose debug logging on');
+
+    mongoose.set('debug', true);
+    mongoose.connection.on('error', (err) => {
+        logger.error('Mongoose error');
+        logger.error(err);
+    });
+    mongoose.connection.on('connecting', () => {
+        logger.debug('Mongoose attempting to connect');
+    });
+    mongoose.connection.on('connected', () => {
+        logger.debug('Mongoose connected to server');
+    });
+}
+
 async function init() {
     return new Promise((resolve, reject) => {
-        async function onDbReady(err) {
-            if (err) {
+        async function onDbReady(mongoConnectionError) {
+            if (mongoConnectionError) {
                 if (retries >= 0) {
                     retries--;
                     logger.error(`Failed to connect to MongoDB uri ${mongoUri}, retrying...`);
+                    logger.debug(mongoConnectionError);
                     sleep.sleep(5);
-                    mongoose.connect(mongoUri, onDbReady);
+                    mongoose.connect(mongoUri, mongooseOptions, onDbReady);
                 } else {
                     logger.error('MongoURI', mongoUri);
-                    logger.error(err);
-                    reject(new Error(err));
+                    logger.error(mongoConnectionError);
+                    reject(new Error(mongoConnectionError));
                 }
 
                 return;
             }
 
             // instance of koa
-            const app = koa();
+            const app = new Koa();
 
-            // if environment is dev then load koa-logger
-            if (process.env.NODE_ENV === 'dev') {
-                app.use(koaLogger());
-            }
+            app.use(koaLogger());
+
+            app.use(koaSimpleHealthCheck());
 
             app.use(bodyParser({
                 jsonLimit: '50mb'
             }));
 
             // catch errors and send in jsonapi standard. Always return vnd.api+json
-            app.use(function* (next) {
+            app.use(async (ctx, next) => {
                 try {
-                    yield next;
-                } catch (err) {
-                    this.status = err.status || 500;
-                    if (this.status >= 500) {
-                        logger.error(err);
+                    await next();
+                } catch (inErr) {
+                    let error = inErr;
+                    try {
+                        error = JSON.parse(inErr);
+                    } catch (e) {
+                        logger.debug('Could not parse error message - is it JSON?: ', inErr);
+                        error = inErr;
+                    }
+                    ctx.status = error.status || ctx.status || 500;
+                    if (ctx.status >= 500) {
+                        logger.error(error);
                     } else {
-                        logger.info(err);
+                        logger.info(error);
                     }
 
-                    this.body = ErrorSerializer.serializeError(this.status, err.message || err);
-                    logger.debug(this.body);
-                    if (process.env.NODE_ENV === 'prod' && this.status === 500) {
-                        this.body = 'Unexpected error';
+                    ctx.body = ErrorSerializer.serializeError(ctx.status, error.message);
+                    if (process.env.NODE_ENV === 'prod' && ctx.status === 500) {
+                        ctx.body = 'Unexpected error';
                     }
+                    ctx.response.type = 'application/vnd.api+json';
                 }
-                this.response.type = 'application/vnd.api+json';
             });
 
             // load custom validator
             require('validators/geoJSONValidator');
-            app.use(validate());
+            koaValidate(app);
+
+            app.use(RWAPIMicroservice.bootstrap({
+                name: config.get('service.name'),
+                info: require('../microservice/register.json'),
+                swagger: require('../microservice/public-swagger.json'),
+                logger,
+                baseURL: process.env.CT_URL,
+                url: process.env.LOCAL_URL,
+                token: process.env.CT_TOKEN,
+                fastlyEnabled: process.env.FASTLY_ENABLED,
+                fastlyServiceId: process.env.FASTLY_SERVICEID,
+                fastlyAPIKey: process.env.FASTLY_APIKEY
+            }));
 
             // load routes
             loader.loadRoutes(app);
@@ -78,63 +113,28 @@ async function init() {
             // Instance of http module
             // const app = require('http').Server(app.callback());
 
-
             // get port of environment, if not exist obtain of the config.
             // In production environment, the port must be declared in environment variable
             const port = process.env.PORT || config.get('service.port');
 
-            const server = app.listen(port, () => {
-                ctRegisterMicroservice.register({
-                    info: require('../microservice/register.json'),
-                    swagger: require('../microservice/public-swagger.json'),
-                    mode: (process.env.CT_REGISTER_MODE && process.env.CT_REGISTER_MODE === 'auto') ? ctRegisterMicroservice.MODE_AUTOREGISTER : ctRegisterMicroservice.MODE_NORMAL,
-                    framework: ctRegisterMicroservice.KOA1,
-                    app,
-                    logger,
-                    name: config.get('service.name'),
-                    ctUrl: process.env.CT_URL,
-                    url: process.env.LOCAL_URL,
-                    active: true,
-                }).then(() => {
-                    logger.info('Server started in ', process.env.PORT);
-                    resolve({ app, server });
-                }, (err) => {
-                    logger.error(err);
-                    process.exit(1);
-                });
+            const server = app.listen(process.env.PORT, () => {
+                if (process.env.CT_REGISTER_MODE === 'auto') {
+                    RWAPIMicroservice.register().then(() => {
+                        logger.info('CT registration process started');
+                        resolve({ app, server });
+                    }, (error) => {
+                        logger.error(error);
+                        process.exit(1);
+                    });
+                }
             });
 
             logger.info(`Server started in port:${port}`);
-
         }
-
 
         logger.info(`Connecting to MongoDB URL ${mongoUri}`);
 
-        let dbOptions = {};
-        if (mongoUri.indexOf('replicaSet') > -1) {
-            dbOptions = {
-                db: { native_parser: true },
-                replset: {
-                    auto_reconnect: false,
-                    poolSize: 10,
-                    socketOptions: {
-                        keepAlive: 1000,
-                        connectTimeoutMS: 30000
-                    }
-                },
-                server: {
-                    poolSize: 5,
-                    socketOptions: {
-                        keepAlive: 1000,
-                        connectTimeoutMS: 30000
-                    }
-                }
-            };
-        }
-        mongoose.connect(mongoUri, dbOptions, onDbReady);
-
-
+        mongoose.connect(mongoUri, mongooseOptions, onDbReady);
     });
 }
 

@@ -1,6 +1,3 @@
-
-const logger = require('logger');
-
 class AreaSerializer {
 
     static serialize(data) {

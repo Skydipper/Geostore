@@ -1,7 +1,3 @@
-
-const logger = require('logger');
-
-
 class CountryListSerializer {
 
     static serialize(data) {

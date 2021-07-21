@@ -1,12 +1,12 @@
-
 const logger = require('logger');
 
-module.exports.makeFeatureCollection = function (data, props) {
+const makeFeatureCollection = (data, props) => {
     if (data.type === 'FeatureCollection') {
         logger.debug('Is a FeatureCollection');
         data.features.properties = props;
         return data;
-    } if (data.type === 'Feature') {
+    }
+    if (data.type === 'Feature') {
         logger.debug('Is a feature');
         data.properties = props;
         return {
@@ -38,15 +38,21 @@ module.exports.makeFeatureCollection = function (data, props) {
 
 };
 
-module.exports.getGeometry = function (data) {
+const getGeometry = (data) => {
     if (data.type === 'FeatureCollection') {
         logger.debug('Is a FeatureCollection');
         return data.features[0].geometry;
-    } if (data.type === 'Feature') {
+    }
+    if (data.type === 'Feature') {
         logger.debug('Is a feature');
         return data.geometry;
     }
     logger.debug('Is a geometry');
     return data;
 
+};
+
+module.exports = {
+    makeFeatureCollection,
+    getGeometry
 };
