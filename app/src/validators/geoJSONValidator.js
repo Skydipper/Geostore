@@ -1,10 +1,9 @@
-/* eslint-disable func-names */
 const geojsonhint = require('geojsonhint');
 const koaValidate = require('koa-validate');
 
 (function () {
 
-    koaValidate.Validator.prototype.isGEOJSON = function () {
+    koaValidate.Validator.prototype.isGEOJSON = function (tip) {
         if (!this.value) {
             // not required
             return this;

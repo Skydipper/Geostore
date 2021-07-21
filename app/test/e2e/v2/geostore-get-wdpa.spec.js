@@ -1,4 +1,3 @@
-/* eslint-disable no-underscore-dangle */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -9,7 +8,7 @@ const { createQueryWDPA } = require('../utils/queries-v2');
 const { createMockQueryCartoDB } = require('../utils/mock');
 const { MOCK_RESULT_CARTODB } = require('../utils/test.constants');
 
-chai.should();
+const should = chai.should();
 
 const prefix = '/api/v2/geostore/wdpa/';
 let geostoreWDPA;
@@ -91,7 +90,7 @@ describe('Geostore v2 tests - Getting geodata by wdpa', () => {
     });
 
     afterEach(async () => {
-        await GeoStore.deleteMany({}).exec();
+        GeoStore.remove({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

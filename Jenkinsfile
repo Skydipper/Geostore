@@ -1,6 +1,7 @@
 #!groovy
 
 node {
+
   // Actions
   def forceCompleteDeploy = false
   try {
@@ -51,7 +52,7 @@ node {
     stage ("Deploy Application") {
       switch ("${env.BRANCH_NAME}") {
 
-        // Roll out to master
+        // Roll out to production
         case "master":
           def userInput = true
           def didTimeout = false
@@ -71,7 +72,6 @@ node {
                   userInput = false
               }
           }
-
           if (userInput == true && !didTimeout){
             sh("echo Deploying to PROD cluster")
             sh("kubectl config use-context gke_${GCLOUD_PROJECT}_${GCLOUD_GCE_ZONE}_${KUBE_PROD_CLUSTER}")

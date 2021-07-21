@@ -1,3 +1,4 @@
+
 class CoverageDuplicated extends Error {
 
     constructor(message) {

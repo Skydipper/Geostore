@@ -2,13 +2,14 @@ const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
 const GeoStore = require('models/geoStore');
-const { getTestServer } = require('../utils/test-server');
+const { createRequest } = require('../utils/test-server');
 const { createGeostore, ensureCorrectError } = require('../utils/utils');
 const { DEFAULT_GEOJSON } = require('../utils/test.constants');
 
-chai.should();
+const should = chai.should();
 
-let requester;
+const prefix = '/api/v1/geostore';
+let geostoreWDPA;
 
 describe('Geostore v1 tests - Getting geodata by wdpa', () => {
     before(async () => {
@@ -20,23 +21,17 @@ describe('Geostore v1 tests - Getting geodata by wdpa', () => {
         }
 
         nock.cleanAll();
-
-        requester = await getTestServer();
+        geostoreWDPA = await createRequest(prefix, 'get');
     });
 
-    it('Getting geodata by hash when data doesn\'t exist into geostore should return not found', async () => {
-        const response = await requester
-            .get(`/api/v1/geostore/asdsadas/view`);
-
+    it('Getting geodata by wdpa when data doens\'t exist into geostore should return not found', async () => {
+        const response = await geostoreWDPA.get('/asdsadas/view');
         ensureCorrectError(response, 'GeoStore not found', 404);
     });
 
-    it('Getting geodata by hash should return result', async () => {
+    it('Getting geodata by wdpa should return result', async () => {
         const createdGeostore = await createGeostore();
-
-        const response = await requester
-            .get(`/api/v1/geostore/${createdGeostore.hash}/view`);
-
+        const response = await geostoreWDPA.get(`/${createdGeostore.hash}/view`);
         response.status.should.equal(200);
         response.body.should.instanceOf(Object).and.have.property('view_link');
         // eslint-disable-next-line camelcase
@@ -51,15 +46,13 @@ describe('Geostore v1 tests - Getting geodata by wdpa', () => {
             type: DEFAULT_GEOJSON.type
         };
 
-        view_link.should.match(/^http:\/\/geojson.io\/#data=data:application\/json/);
-        const responseJSONEncodedString = view_link.replace('http://geojson.io/#data=data:application/json,', '');
-        const responseJSON = JSON.parse(decodeURIComponent(responseJSONEncodedString));
-
-        responseJSON.should.deep.equal(expectedGEOJSON);
+        view_link.should.equal(`http://geojson.io/#data=data:application/json,${encodeURIComponent(
+            JSON.stringify(expectedGEOJSON)
+        )}`);
     });
 
     afterEach(async () => {
-        await GeoStore.deleteMany({}).exec();
+        GeoStore.remove({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

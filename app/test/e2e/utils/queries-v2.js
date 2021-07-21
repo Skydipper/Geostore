@@ -1,7 +1,3 @@
-const createQueryISOName = (iso) => `SELECT gid_0 as iso, name_0 as name
-        FROM gadm36_adm0
-        WHERE gid_0 in ${iso}`;
-
 const createQueryWDPA = (wdpaId) => `SELECT ST_AsGeoJSON(ST_MAKEVALID(p.the_geom)) AS geojson, (ST_Area(geography(the_geom))/10000) as area_ha
         FROM (
           SELECT CASE
@@ -14,4 +10,4 @@ const createQueryWDPA = (wdpaId) => `SELECT ST_AsGeoJSON(ST_MAKEVALID(p.the_geom
           WHERE wdpaid=${wdpaId}
         ) p`;
 
-module.exports = { createQueryWDPA, createQueryISOName };
+module.exports = { createQueryWDPA };

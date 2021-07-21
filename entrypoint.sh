@@ -12,11 +12,11 @@ case "$1" in
         ;;
     test)
         echo "Running Test"
-        exec yarn test
+        exec grunt --gruntfile app/Gruntfile.js test
         ;;
     start)
         echo "Running Start"
-        exec yarn start
+        exec npm start
         ;;
     *)
         exec "$@"

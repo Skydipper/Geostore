@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
@@ -46,11 +47,10 @@ const GeoStore = new Schema({
         },
         simplify: { type: Boolean, required: false },
         simplifyThresh: { type: Number, required: false }
+
     }
 });
 
-GeoStore.index({ hash: 1 });
-GeoStore.index({ info: 1 }, { unique: false });
 GeoStore.index({
     hash: 1,
     'info.iso': 1,
@@ -65,5 +65,6 @@ GeoStore.index({ 'info.iso': 1, 'info.id1': 1 });
 GeoStore.index({ 'info.iso': 1, 'info.id1': 1, 'info.id2': 1 });
 GeoStore.index({ 'info.wdpaid': 1 });
 GeoStore.index({ 'info.use.use': 1, 'info.use.id': 1 });
+
 
 module.exports = mongoose.model('GeoStore', GeoStore);

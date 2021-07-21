@@ -1,7 +1,10 @@
+
 const logger = require('logger');
+const path = require('path');
 const config = require('config');
 const CartoDB = require('cartodb');
 const Mustache = require('mustache');
+const JSONAPIDeserializer = require('jsonapi-serializer').Deserializer;
 const GeoStoreService = require('services/geoStoreService');
 
 const ISO = `SELECT ST_AsGeoJSON(st_makevalid(the_geom)) AS geojson, (ST_Area(geography(the_geom))/10000) as area_ha, name_0 as name
@@ -39,14 +42,23 @@ const USE = `SELECT ST_AsGeoJSON(st_makevalid(the_geom)) AS geojson, (ST_Area(ge
         FROM {{use}}
         WHERE cartodb_id = {{id}}`;
 
-const executeThunk = (client, sql, params) => new Promise(((resolve, reject) => {
-    logger.debug(Mustache.render(sql, params));
-    client.execute(sql, params).done((data) => {
-        resolve(data);
-    }).error((err) => {
-        reject(err);
-    });
-}));
+const executeThunk = function (client, sql, params) {
+    return function (callback) {
+        logger.debug(Mustache.render(sql, params));
+        client.execute(sql, params).done((data) => {
+            callback(null, data);
+        }).error((err) => {
+            callback(err, null);
+        });
+    };
+};
+
+const deserializer = function (obj) {
+    return function (callback) {
+        new JSONAPIDeserializer({ keyForAttribute: 'camelCase' }).deserialize(obj, callback);
+    };
+};
+
 
 class CartoDBService {
 
@@ -56,7 +68,7 @@ class CartoDBService {
         });
     }
 
-    async getNational(iso) {
+    * getNational(iso) {
         logger.debug('Obtaining national of iso %s', iso);
         const params = {
             iso: iso.toUpperCase(),
@@ -65,7 +77,7 @@ class CartoDBService {
             gadm: '2.8'
         };
         logger.debug('Checking existing national geo');
-        let existingGeo = await GeoStoreService.getGeostoreByInfo(params);
+        let existingGeo = yield GeoStoreService.getGeostoreByInfo(params);
         logger.debug('Existed geo', existingGeo);
         if (existingGeo) {
             logger.debug('Return national geojson stored');
@@ -73,7 +85,7 @@ class CartoDBService {
         }
 
         logger.debug('Request national to carto');
-        const data = await executeThunk(this.client, ISO, { iso: iso.toUpperCase() });
+        const data = yield executeThunk(this.client, ISO, { iso: iso.toUpperCase() });
         if (data.rows && data.rows.length > 0) {
             const result = data.rows[0];
             logger.debug('Saving national geostore');
@@ -81,23 +93,23 @@ class CartoDBService {
                 info: params
             };
             geoData.info.name = result.name;
-            existingGeo = await GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
+            existingGeo = yield GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
             logger.debug('Return national geojson from carto');
             return existingGeo;
         }
         return null;
     }
 
-    async getNationalList() {
+    * getNationalList() {
         logger.debug('Request national list names from carto');
-        const countryList = await GeoStoreService.getNationalList();
-        const isoMapValues = countryList.map((el) => el.info.iso);
-        let isoValues = '';
-        isoMapValues.forEach((el) => {
-            isoValues += `'${el.toUpperCase()}', `;
+        const countryList = yield GeoStoreService.getNationalList();
+        const iso_values_map = countryList.map((el) => el.info.iso);
+        let iso_values = '';
+        iso_values_map.forEach((el) => {
+            iso_values += `'${el.toUpperCase()}', `;
         });
-        isoValues = `(${isoValues.substr(0, isoValues.length - 2)})`;
-        const data = await executeThunk(this.client, ISO_NAME + isoValues);
+        iso_values = `(${iso_values.substr(0, iso_values.length - 2)})`;
+        const data = yield executeThunk(this.client, ISO_NAME + iso_values);
         if (data.rows && data.rows.length > 0) {
             logger.debug('Adding Country names');
             countryList.forEach((countryListElement) => {
@@ -112,7 +124,7 @@ class CartoDBService {
         return countryList;
     }
 
-    async getSubnational(iso, id1) {
+    * getSubnational(iso, id1) {
         logger.debug('Obtaining subnational of iso %s and id1', iso, id1);
         const params = {
             iso: iso.toUpperCase(),
@@ -122,7 +134,7 @@ class CartoDBService {
         };
 
         logger.debug('Checking existing subnational geo');
-        let existingGeo = await GeoStoreService.getGeostoreByInfo(params);
+        let existingGeo = yield GeoStoreService.getGeostoreByInfo(params);
         logger.debug('Existed geo', existingGeo);
         if (existingGeo) {
             logger.debug('Return subnational geojson stored');
@@ -130,7 +142,7 @@ class CartoDBService {
         }
 
         logger.debug('Request subnational to carto');
-        const data = await executeThunk(this.client, ID1, params);
+        const data = yield executeThunk(this.client, ID1, params);
         if (data.rows && data.rows.length > 0) {
             logger.debug('Return subnational geojson from carto');
             const result = data.rows[0];
@@ -138,13 +150,13 @@ class CartoDBService {
             const geoData = {
                 info: params
             };
-            existingGeo = await GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
+            existingGeo = yield GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
             return existingGeo;
         }
         return null;
     }
 
-    async getAdmin2(iso, id1, id2) {
+    * getAdmin2(iso, id1, id2) {
         logger.debug('Obtaining admin2 of iso %s, id1 and id2', iso, id1, id2);
         const params = {
             iso: iso.toUpperCase(),
@@ -154,7 +166,7 @@ class CartoDBService {
         };
 
         logger.debug('Checking existing admin2 geostore');
-        let existingGeo = await GeoStoreService.getGeostoreByInfo(params);
+        let existingGeo = yield GeoStoreService.getGeostoreByInfo(params);
         logger.debug('Existed geo', existingGeo);
         if (existingGeo) {
             logger.debug('Return admin2 geojson stored');
@@ -162,7 +174,7 @@ class CartoDBService {
         }
 
         logger.debug('Request admin2 shape from Carto');
-        const data = await executeThunk(this.client, ID2, params);
+        const data = yield executeThunk(this.client, ID2, params);
         if (data.rows && data.rows.length > 0) {
             logger.debug('Return admin2 geojson from Carto');
             const result = data.rows[0];
@@ -170,13 +182,13 @@ class CartoDBService {
             const geoData = {
                 info: params
             };
-            existingGeo = await GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
+            existingGeo = yield GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
             return existingGeo;
         }
         return null;
     }
 
-    async getUse(use, id) {
+    * getUse(use, id) {
         logger.debug('Obtaining use with id %s', id);
 
         const params = {
@@ -188,7 +200,7 @@ class CartoDBService {
         };
 
         logger.debug('Checking existing use geo', info);
-        let existingGeo = await GeoStoreService.getGeostoreByInfo(info);
+        let existingGeo = yield GeoStoreService.getGeostoreByInfo(info);
         logger.debug('Existed geo', existingGeo);
         if (existingGeo) {
             logger.debug('Return use geojson stored');
@@ -196,7 +208,7 @@ class CartoDBService {
         }
 
         logger.debug('Request use to carto');
-        const data = await executeThunk(this.client, USE, params);
+        const data = yield executeThunk(this.client, USE, params);
 
         if (data.rows && data.rows.length > 0) {
             const result = data.rows[0];
@@ -204,14 +216,14 @@ class CartoDBService {
             const geoData = {
                 info
             };
-            existingGeo = await GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
+            existingGeo = yield GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
             logger.debug('Return use geojson from carto');
             return existingGeo;
         }
         return null;
     }
 
-    async getWdpa(wdpaid) {
+    * getWdpa(wdpaid) {
         logger.debug('Obtaining wpda of id %s', wdpaid);
 
         const params = {
@@ -219,7 +231,7 @@ class CartoDBService {
         };
 
         logger.debug('Checking existing wdpa geo');
-        let existingGeo = await GeoStoreService.getGeostoreByInfo(params);
+        let existingGeo = yield GeoStoreService.getGeostoreByInfo(params);
         logger.debug('Existed geo', existingGeo);
         if (existingGeo) {
             logger.debug('Return wdpa geojson stored');
@@ -227,16 +239,35 @@ class CartoDBService {
         }
 
         logger.debug('Request wdpa to carto');
-        const data = await executeThunk(this.client, WDPA, params);
+        const data = yield executeThunk(this.client, WDPA, params);
         if (data.rows && data.rows.length > 0) {
             const result = data.rows[0];
             logger.debug('Saving national geostore');
             const geoData = {
                 info: params
             };
-            existingGeo = await GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
+            existingGeo = yield GeoStoreService.saveGeostore(JSON.parse(result.geojson), geoData);
             logger.debug('Return wdpa geojson from carto');
             return existingGeo;
+        }
+        return null;
+    }
+
+    * getGeostore(hashGeoStore) {
+        logger.debug('Obtaining geostore with hash %s', hashGeoStore);
+        const result = yield require('vizz.microservice-client').requestToMicroservice({
+            uri: `/geostore/${hashGeoStore}`,
+            method: 'GET',
+            json: true
+        });
+        if (result.statusCode !== 200) {
+            console.error('Error obtaining geostore:');
+            console.error(result);
+            return null;
+        }
+        const geostore = yield deserializer(result.body);
+        if (geostore) {
+            return geostore;
         }
         return null;
     }

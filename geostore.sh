@@ -1,8 +1,14 @@
 #!/bin/bash
 
 case "$1" in
+    test-e2e)
+        npm run test-e2e
+        ;;
+    test-unit)
+        npm run test-unit
+        ;;
     start)
-        yarn start
+        npm start
         ;;
     develop)
         type docker-compose >/dev/null 2>&1 || { echo >&2 "docker-compose is required but it's not installed.  Aborting."; exit 1; }
@@ -10,10 +16,10 @@ case "$1" in
         ;;
     test)
         type docker-compose >/dev/null 2>&1 || { echo >&2 "docker-compose is required but it's not installed.  Aborting."; exit 1; }
-        docker-compose -f docker-compose-test.yml build && docker-compose -f docker-compose-test.yml up --abort-on-container-exit
+        docker-compose -f docker-compose-test.yml build && docker-compose -f docker-compose-test.yml run --rm test
         ;;
   *)
-        echo "Usage: geostore.sh {start|develop|test}" >&2
+        echo "Usage: geostore.sh {test-e2e|test-unit|start|develop|test}" >&2
         exit 1
         ;;
 esac

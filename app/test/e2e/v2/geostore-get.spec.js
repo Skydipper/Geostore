@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars,no-undef */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -6,7 +7,7 @@ const { createRequest } = require('../utils/test-server');
 const { getUUID, createGeostore, ensureCorrectError } = require('../utils/utils');
 const { DEFAULT_GEOJSON } = require('../utils/test.constants');
 
-chai.should();
+const should = chai.should();
 
 const prefix = '/api/v2/geostore/';
 let geostore;

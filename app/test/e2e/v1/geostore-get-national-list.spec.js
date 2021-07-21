@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars,no-undef */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
@@ -8,7 +9,7 @@ const { createGeostore } = require('../utils/utils');
 const { createMockQueryCartoDB } = require('../utils/mock');
 const { createQueryISOName } = require('../utils/queries-v1');
 
-chai.should();
+const should = chai.should();
 const prefix = '/api/v1/geostore/admin/list';
 
 let listNational;
@@ -48,8 +49,8 @@ describe('Geostore v1 tests - Get list geostore national', () => {
         });
     });
 
-    afterEach(async () => {
-        await GeoStore.deleteMany({}).exec();
+    afterEach(() => {
+        GeoStore.remove({}).exec();
 
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);

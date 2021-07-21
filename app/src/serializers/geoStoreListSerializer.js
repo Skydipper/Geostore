@@ -1,4 +1,6 @@
+
 const GeoJSONSerializer = require('serializers/geoJSONSerializer');
+
 
 class GeoStoreListSerializer {
 

@@ -1,11 +1,12 @@
-/* eslint-disable max-len */
+/* eslint-disable no-unused-vars,no-undef */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
+const logger = require('logger');
 
 const { getTestServer } = require('../utils/test-server');
 
-chai.should();
+const should = chai.should();
 
 let requester;
 nock.disableNetConnect();
@@ -185,56 +186,6 @@ describe('Geostore v1 tests - Create geostores', () => {
 
         response.body.data.attributes.geojson.features[0].geometry.should.have.property('type').and.be.a('string');
         response.body.data.attributes.geojson.features[0].geometry.should.have.property('coordinates').and.be.an('array').and.not.length(0);
-    });
-
-    it('Create a geostore for an area should return a response with status code 200 OK', async () => {
-        const response = await requester.post(`/api/v1/geostore/area`).send({
-            geojson: {
-                type: 'FeatureCollection',
-                features: [
-                    {
-                        type: 'Feature',
-                        properties: {
-
-                        },
-                        geometry: {
-                            type: 'Polygon',
-                            coordinates: [
-                                [
-                                    [
-                                        -4.4549560546875,
-                                        40.84706035607122
-                                    ],
-                                    [
-                                        -4.4549560546875,
-                                        41.30257109430557
-                                    ],
-                                    [
-                                        -3.5211181640624996,
-                                        41.30257109430557
-                                    ],
-                                    [
-                                        -3.5211181640624996,
-                                        40.84706035607122
-                                    ],
-                                    [
-                                        -4.4549560546875,
-                                        40.84706035607122
-                                    ]
-                                ]
-                            ]
-                        }
-                    }
-                ]
-            }
-        });
-
-        response.status.should.equal(200);
-        response.body.should.have.property('data').and.be.an('object');
-        response.body.data.should.have.property('type').and.equal('geomArea');
-        response.body.data.should.have.property('attributes').and.be.an('object');
-        response.body.data.attributes.should.have.property('bbox').and.be.an('array');
-        response.body.data.attributes.should.have.property('areaHa').and.be.an('number');
     });
 
     afterEach(() => {

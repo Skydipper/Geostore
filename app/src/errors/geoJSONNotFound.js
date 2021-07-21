@@ -1,3 +1,4 @@
+
 class GeoJSONNotFound extends Error {
 
     constructor(message) {

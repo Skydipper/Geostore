@@ -1,12 +1,14 @@
+/* eslint-disable no-unused-vars,no-undef */
 const nock = require('nock');
 const chai = require('chai');
 const config = require('config');
 const GeoStore = require('models/geoStore');
+const logger = require('logger');
 
 const { createGeostore, getUUID } = require('../utils/utils');
 const { getTestServer } = require('../utils/test-server');
 
-chai.should();
+const should = chai.should();
 
 let requester;
 nock.disableNetConnect();
@@ -24,7 +26,7 @@ describe('Geostore v2 tests - Get multiple geostorea', () => {
 
         requester = await getTestServer();
 
-        await GeoStore.deleteMany({}).exec();
+        GeoStore.remove({}).exec();
 
         nock.cleanAll();
     });
@@ -91,11 +93,13 @@ describe('Geostore v2 tests - Get multiple geostorea', () => {
 
     });
 
-    afterEach(async () => {
-        await GeoStore.deleteMany({}).exec();
-
+    afterEach(() => {
         if (!nock.isDone()) {
             throw new Error(`Not all nock interceptors were used: ${nock.pendingMocks()}`);
         }
+    });
+
+    after(() => {
+        GeoStore.remove({}).exec();
     });
 });

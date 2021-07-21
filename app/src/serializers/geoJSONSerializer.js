@@ -1,3 +1,5 @@
+
+const logger = require('logger');
 const JSONAPISerializer = require('jsonapi-serializer').Serializer;
 
 const geoStoreSerializer = new JSONAPISerializer('geoStore', {
@@ -13,7 +15,7 @@ const geoStoreSerializer = new JSONAPISerializer('geoStore', {
     provider: {
         attributes: ['type', 'table', 'user', 'filter']
     },
-    typeForAttribute(attribute) {
+    typeForAttribute(attribute, record) {
         return attribute;
     },
     keyForAttribute: 'camelCase'

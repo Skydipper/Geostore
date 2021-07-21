@@ -1,9 +1,9 @@
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
     name: {name}
-    app: gfw
+    app: geostore
   name: {name}
 spec:
   revisionHistoryLimit: 2
